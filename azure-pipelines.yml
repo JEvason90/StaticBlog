@@ -1,0 +1,53 @@
+trigger:
+  - main
+  
+pool:
+  vmImage: 'windows-latest'
+
+variables:
+  staticSiteStorage: 'YOURSTATICSTORAGE'
+
+stages:
+- stage:
+  displayName: Build and Deploy Front end
+  jobs:
+  - job:
+    displayName: Build & Publish Static Site
+    steps:
+    # Build Static Site
+    - task: Npm@1
+      inputs:
+        command: 'install'
+        workingDir: 'src/Site/site_app'
+        verbose: true
+
+    - task: Npm@1
+      inputs:
+        command: 'custom'
+        workingDir: 'src/Site/site_app'
+        customCommand: 'run-script build'
+        
+    - task: CopyFiles@2
+      inputs:
+        SourceFolder: 'src/Site/site_app/build'
+        Contents: '**'
+        TargetFolder: '$(Build.ArtifactStagingDirectory)/site'
+
+    - publish: '$(Build.ArtifactStagingDirectory)/site'
+      artifact: site
+  - job:
+    displayName: Deploy Static Site
+    steps:
+    # Deployment
+    - download: current
+      artifact: site
+
+    #Deploy Static Site
+    - task: AzureFileCopy@3
+      displayName: 'Copy Static Site to Blob Container'
+      inputs:
+        SourcePath: '$(Pipeline.Workspace)/site'
+        azureSubscription: 'YOUR SUBSCRIPTION'
+        Destination: 'AzureBlob'
+        storage: '$(staticSiteStorage)'
+        ContainerName: '$web'
